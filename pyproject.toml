@@ -12,6 +12,7 @@ fire = "^0.7.0"
 pydantic = "^2.10.3"
 shortuuid = "^1.0.13"
 flask-cors = "^5.0.0"
+flask-login = "^0.6.3"
 
 
 [tool.poetry.group.dev.dependencies]
