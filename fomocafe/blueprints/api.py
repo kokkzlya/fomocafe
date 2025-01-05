@@ -1,11 +1,20 @@
 import json
 import os
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
+import jwt
 import shortuuid
 from pydantic.json import pydantic_encoder
-from flask import Blueprint, Response, jsonify, request, send_from_directory
+from flask import (
+    Blueprint,
+    Response,
+    current_app,
+    jsonify,
+    request,
+    send_from_directory,
+)
+from flask_login import current_user, login_required
 from werkzeug.utils import secure_filename
 
 from fomocafe.models import Product, User
@@ -26,8 +35,8 @@ def register():
         email=data["email"],
         username=data["username"],
         password=data["password"],
-        created=datetime.now(UTC),
-        updated=datetime.now(UTC),
+        created=datetime.now(UTC).isoformat(),
+        updated=datetime.now(UTC).isoformat(),
     )
     with sqlite3.connect("database.db") as conn:
         cur = conn.cursor()
@@ -50,9 +59,39 @@ def register():
     }), 201
 
 
+@bp.route("/userinfo", methods=["GET"])
+@login_required
+def userinfo():
+    return jsonify({
+        "id": current_user.id,
+        "name": current_user.name,
+        "email": current_user.email,
+        "username": current_user.username,
+        "created": current_user.created,
+        "updated": current_user.updated,
+    })
+
+
 @bp.route("/login", methods=["POST"])
 def login():
-    return "", 200
+    cred = request.get_json()
+    with sqlite3.connect("database.db") as conn:
+        cur = conn.cursor()
+        result = cur.execute(
+            "SELECT id, name, email, username, password, created, updated "
+            "FROM users "
+            "WHERE username = ? AND password = ?",
+            (cred["username"], cred["password"]),
+        ).fetchone()
+        if result is None:
+            return jsonify({"message": "Invalid credentials"}), 401
+    payload = {
+        "sub": result[3],
+        "name": result[1],
+        "exp": datetime.now(UTC) + timedelta(days=1),
+    }
+    token = jwt.encode(payload, current_app.config["SECRET_KEY"], algorithm="HS256")
+    return jsonify({"token": token})
 
 
 @bp.route("/logout", methods=["POST"])
@@ -61,6 +100,7 @@ def logout():
 
 
 @bp.route("/products", methods=["GET"])
+@login_required
 def fetch_products():
     conn = sqlite3.connect("database.db")
     cur = conn.cursor()
@@ -103,8 +143,8 @@ def create_product():
         price=data["price"],
         stock=data["stock"],
         image_url=None,
-        created=datetime.now(UTC),
-        updated=datetime.now(UTC),
+        created=datetime.now(UTC).isoformat(),
+        updated=datetime.now(UTC).isoformat(),
     )
     with sqlite3.connect("database.db") as conn:
         cur = conn.cursor()

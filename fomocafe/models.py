@@ -1,16 +1,20 @@
 from __future__ import annotations
-from datetime import datetime  # noqa: TCH003
+from datetime import datetime  # noqa: TC003
 
 import pydantic
+from flask_login import UserMixin
 
-class User(pydantic.BaseModel):
+class User(pydantic.BaseModel, UserMixin):
     id: str
     name: str
     email: str
     username: str
-    password: str
+    password: str | None
     created: datetime
     updated: datetime
+
+    def get_id(self) -> str:
+        return self.id
 
 class Product(pydantic.BaseModel):
     id: str
