@@ -102,13 +102,16 @@ def logout():
 @bp.route("/products", methods=["GET"])
 @login_required
 def fetch_products():
+    category = request.args.get("category", None)
+    q = "SELECT " \
+        "id, name, description, category, price, stock, image_url, created, updated " \
+        "FROM products"
+    if category is not None and len(category) > 0:
+        q += f" WHERE category = {category}"
+
     conn = sqlite3.connect("database.db")
     cur = conn.cursor()
-    cur.execute(
-        "SELECT "
-        "id, name, description, category, price, stock, image_url, created, updated "
-        "FROM products",
-    )
+    cur.execute(q)
     products = []
     for row in cur.fetchall():
         product = Product(
